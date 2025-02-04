@@ -74,22 +74,28 @@ end
 ---@param prompt_opts AvantePromptOptions
 M.parse_curl_args = function(provider, prompt_opts)
   local base, body_opts = P.parse_config(provider)
-
+  -- Validate required configurations
   if not base.model or base.model == "" then error("Ollama model must be specified in config") end
   if not base.endpoint then error("Ollama requires endpoint configuration") end
-
+  -- Construct messages, ensuring the system message is included
+  local messages = {
+    { role = "system", content = prompt_opts.system_prompt },
+  }
+  vim.list_extend(messages, M.parse_messages(prompt_opts))
+  -- Construct body separately for clarity
+  local body = vim.tbl_deep_extend("force", {
+    model = base.model,
+    messages = messages,
+    stream = true,
+  }, body_opts)
+  -- Return the final request configuration
   return {
     url = Utils.url_join(base.endpoint, "/api/chat"),
     headers = {
       ["Content-Type"] = "application/json",
       ["Accept"] = "application/json",
     },
-    body = vim.tbl_deep_extend("force", {
-      model = base.model,
-      messages = M.parse_messages(prompt_opts),
-      stream = true,
-      system = prompt_opts.system_prompt,
-    }, body_opts),
+    body = body,
   }
 end
 
